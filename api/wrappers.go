@@ -532,7 +532,7 @@ func (api *API) PrepareTransfers(seed Trytes, transfers bundle.Transfers, opts P
 
 		// filter out inputs which are already spent
 		inputAddresses := make(Hashes, len(opts.Inputs))
-		for i := range opts.Inputs {
+		for i := range inputs.Inputs {
 			inputAddresses[i] = inputs.Inputs[i].Address
 		}
 
