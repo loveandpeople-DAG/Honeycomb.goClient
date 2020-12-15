@@ -27,6 +27,10 @@ func NewHTTPClient(settings interface{}) (Provider, error) {
 type HTTPClientSettings struct {
 	// The URI endpoint to connect to. Defaults to DefaultLocalIRIURI if empty.
 	URI string
+	// Authorization User Default nil
+	User string
+	// Authorization Password default nil
+	Pwd string
 	// The underlying HTTPClient to use. Defaults to http.DefaultClient.
 	Client HTTPClient
 	// The Proof-of-Work implementation function. Defaults to use the AttachToTangle IRI API call.
@@ -46,6 +50,8 @@ type HTTPClient interface {
 type httpclient struct {
 	client   HTTPClient
 	endpoint string
+	User     string
+	Pwd      string
 }
 
 // ignore
@@ -53,6 +59,10 @@ func (hc *httpclient) SetSettings(settings interface{}) error {
 	httpSettings, ok := settings.(HTTPClientSettings)
 	if !ok {
 		return errors.Wrapf(ErrInvalidSettingsType, "expected %T", HTTPClientSettings{})
+	}
+	if httpSettings.User != "" && httpSettings.Pwd != "" {
+		hc.User = httpSettings.User
+		hc.Pwd = httpSettings.Pwd
 	}
 	if len(httpSettings.URI) == 0 {
 		hc.endpoint = DefaultLocalIRIURI
@@ -85,6 +95,10 @@ func (hc *httpclient) Send(cmd interface{}, out interface{}) error {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-IOTA-API-Version", "1")
+	if hc.User != "" && hc.Pwd != "" {
+		req.Header.Set("Authorization", "Basic "+hc.User+":"+hc.Pwd)
+	}
+
 	resp, err := hc.client.Do(req)
 	if err != nil {
 		return err
@@ -98,7 +112,7 @@ func (hc *httpclient) Send(cmd interface{}, out interface{}) error {
 
 	if resp.StatusCode != http.StatusOK {
 		errResp := &ErrRequestError{Code: resp.StatusCode}
-		json.Unmarshal(bs, errResp)
+		_ = json.Unmarshal(bs, errResp)
 		return errResp
 	}
 
