@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	. "github.com/loveandpeople-DAG/goClient/consts"
 	"github.com/loveandpeople-DAG/goClient/pow"
@@ -48,10 +49,9 @@ type HTTPClient interface {
 }
 
 type httpclient struct {
-	client   HTTPClient
-	endpoint string
-	User     string
-	Pwd      string
+	client        HTTPClient
+	endpoint      string
+	Authorization string
 }
 
 // ignore
@@ -61,8 +61,8 @@ func (hc *httpclient) SetSettings(settings interface{}) error {
 		return errors.Wrapf(ErrInvalidSettingsType, "expected %T", HTTPClientSettings{})
 	}
 	if httpSettings.User != "" && httpSettings.Pwd != "" {
-		hc.User = httpSettings.User
-		hc.Pwd = httpSettings.Pwd
+		Authorization := httpSettings.User + ":" + httpSettings.Pwd
+		hc.Authorization = base64.StdEncoding.EncodeToString([]byte(Authorization))
 	}
 	if len(httpSettings.URI) == 0 {
 		hc.endpoint = DefaultLocalIRIURI
@@ -95,8 +95,8 @@ func (hc *httpclient) Send(cmd interface{}, out interface{}) error {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-IOTA-API-Version", "1")
-	if hc.User != "" && hc.Pwd != "" {
-		req.Header.Set("Authorization", "Basic "+hc.User+":"+hc.Pwd)
+	if hc.Authorization != "" {
+		req.Header.Set("Authorization", "Basic "+hc.Authorization)
 	}
 
 	resp, err := hc.client.Do(req)
