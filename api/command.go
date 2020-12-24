@@ -136,22 +136,27 @@ type GetNodeInfoCommand struct {
 
 // GetNodeInfoResponse is the response from the GetNodeInfo API call.
 type GetNodeInfoResponse struct {
-	AppName                            string `json:"appName"`
-	AppVersion                         string `json:"appVersion"`
-	Duration                           int64  `json:"duration"`
-	JREAvailableProcessors             int64  `json:"jreAvailableProcessors"`
-	JREFreeMemory                      int64  `json:"jreFreeMemory"`
-	JREMaxMemory                       int64  `json:"jreMaxMemory"`
-	JRETotalMemory                     int64  `json:"jreTotalMemory"`
-	LatestMilestone                    Hash   `json:"latestMilestone"`
-	LatestMilestoneIndex               int64  `json:"latestMilestoneIndex"`
-	LatestSolidSubtangleMilestone      Hash   `json:"latestSolidSubtangleMilestone"`
-	LatestSolidSubtangleMilestoneIndex int64  `json:"latestSolidSubtangleMilestoneIndex"`
-	Neighbors                          int64  `json:"neighbors"`
-	PacketsQueueSize                   int64  `json:"packetsQueueSize"`
-	Time                               int64  `json:"time"`
-	Tips                               int64  `json:"tips"`
-	TransactionsToRequest              int64  `json:"transactionsToRequest"`
+	AppName                            string   `json:"appName"`
+	AppVersion                         string   `json:"appVersion"`
+	NodeAlias                          string   `json:"nodeAlias,omitempty"`
+	LatestMilestone                    Hash     `json:"latestMilestone"`
+	LatestMilestoneIndex               uint32   `json:"latestMilestoneIndex"`
+	LatestSolidSubtangleMilestone      Hash     `json:"latestSolidSubtangleMilestone"`
+	LatestSolidSubtangleMilestoneIndex uint32   `json:"latestSolidSubtangleMilestoneIndex"`
+	IsSynced                           bool     `json:"isSynced"`
+	Health                             bool     `json:"isHealthy"`
+	MilestoneStartIndex                uint32   `json:"milestoneStartIndex"`
+	LastSnapshottedMilestoneIndex      uint32   `json:"lastSnapshottedMilestoneIndex"`
+	Neighbors                          uint     `json:"neighbors"`
+	Time                               int64    `json:"time"`
+	Tips                               uint32   `json:"tips"`
+	TransactionsToRequest              int      `json:"transactionsToRequest"`
+	Features                           []string `json:"features"`
+	CoordinatorAddress                 Hash     `json:"coordinatorAddress"`
+	Duration                           int      `json:"duration"`
+	AutopeeringID                      string   `json:"autopeering_id"`
+	Uptime                             int64    `json:"uptime"`
+	IsHealthy                          bool     `json:"is_healthy"`
 }
 
 // GetLatestSolidSubtangleMilestoneCommand represents the payload to the GetNodeInfo API call.
