@@ -3,6 +3,7 @@ package bundle
 
 import (
 	"math"
+	"strings"
 	"time"
 
 	"github.com/loveandpeople-DAG/goClient/checksum"
@@ -179,63 +180,101 @@ func getBundleEntryWithDefaults(entry BundleEntry) BundleEntry {
 	return entry
 }
 
-// Finalize finalizes the bundle by calculating the bundle hash and setting it on each transaction
-// bundle hash field.
+// Finalize finalizes the bundle by calculating and setting the bundle hash.
+// It increments ObsoleteTag until the hash does not contain an M; this serves as a work-around for the so-called M-Bug.
 func Finalize(bundle Bundle) (Bundle, error) {
-	var valueTrits = make([]Trits, len(bundle))
-	var timestampTrits = make([]Trits, len(bundle))
-	var currentIndexTrits = make([]Trits, len(bundle))
-	var obsoleteTagTrits = make([]Trits, len(bundle))
-	var lastIndexTrits = MustPadTrits(IntToTrits(int64(bundle[0].LastIndex)), 27)
+	// bundle hash must not contain an M
+	return finalize(bundle, normalizedHashHasNoM)
+}
 
+// FinalizeInsecure finalizes the bundle by calculating and setting the bundle hash.
+// The bundle finalized with this could be susceptible to the so-called M-Bug, but it is much faster than Finalize.
+// It must only be used for non-value transactions or for value transactions where the private key
+// has been derived in an M-Bug resistant way.
+func FinalizeInsecure(bundle Bundle) (Bundle, error) {
+	// any bundle hash is valid
+	return finalize(bundle, func(Hash) bool { return true })
+}
+
+func finalize(bundle Bundle, validator func(Hash) bool) (Bundle, error) {
+	if len(bundle) == 0 {
+		return bundle, nil
+	}
+
+	var (
+		addresses         = make([]Trytes, len(bundle))
+		values            = make([]Trytes, len(bundle))
+		obsoleteTagsTrits = make([]Trits, len(bundle))
+		timestamps        = make([]Trytes, len(bundle))
+		currentIndexes    = make([]Trytes, len(bundle))
+		lastIndexes       = make([]Trytes, len(bundle))
+	)
 	for i := range bundle {
-		valueTrits[i] = MustPadTrits(IntToTrits(bundle[i].Value), 81)
-		timestampTrits[i] = MustPadTrits(IntToTrits(int64(bundle[i].Timestamp)), 27)
-		currentIndexTrits[i] = MustPadTrits(IntToTrits(int64(bundle[i].CurrentIndex)), 27)
-		obsoleteTagTrits[i] = MustPadTrits(MustTrytesToTrits(bundle[i].ObsoleteTag), 81)
+		// make sure the last address trit is zero for backward compatibility
+		addresses[i] = zeroLastTrit(bundle[i].Address)
+		values[i] = IntToTrytes(bundle[i].Value, ValueSizeTrinary/TritsPerTryte)
+		obsoleteTagsTrits[i] = MustPadTrits(MustTrytesToTrits(bundle[i].ObsoleteTag), TagTrinarySize)
+		timestamps[i] = IntToTrytes(int64(bundle[i].Timestamp), TimestampTrinarySize/TritsPerTryte)
+		currentIndexes[i] = IntToTrytes(int64(bundle[i].CurrentIndex), CurrentIndexTrinarySize/TritsPerTryte)
+		lastIndexes[i] = IntToTrytes(int64(bundle[i].LastIndex), LastIndexTrinarySize/TritsPerTryte)
 	}
 
 	var bundleHash Hash
 	for {
 		k := kerl.NewKerl()
+		for i := range bundle {
+			var essence strings.Builder
+			essence.Grow(2 * HashTrytesSize)
 
-		for i := 0; i < len(bundle); i++ {
-			relevantTrytesForBundleHash := bundle[i].Address +
-				MustTritsToTrytes(valueTrits[i]) +
-				MustTritsToTrytes(obsoleteTagTrits[i]) +
-				MustTritsToTrytes(timestampTrits[i]) +
-				MustTritsToTrytes(currentIndexTrits[i]) +
-				MustTritsToTrytes(lastIndexTrits)
-			k.MustAbsorbTrytes(relevantTrytesForBundleHash)
+			essence.WriteString(addresses[i])
+			essence.WriteString(values[i])
+			essence.WriteString(MustTritsToTrytes(obsoleteTagsTrits[i]))
+			essence.WriteString(timestamps[i])
+			essence.WriteString(currentIndexes[i])
+			essence.WriteString(lastIndexes[i])
+
+			if err := k.AbsorbTrytes(essence.String()); err != nil {
+				return nil, err
+			}
 		}
 
 		bundleHash = k.MustSqueezeTrytes(HashTrinarySize)
 
-		// check whether normalized bundle hash can be computed
-		normalizedBundleHash := signing.NormalizedBundleHash(bundleHash)
-		ok := true
-		for i := range normalizedBundleHash {
-			if normalizedBundleHash[i] == 13 {
-				ok = false
-				break
-			}
-		}
-		if ok {
+		// check whether normalized bundle hash is valid
+		if validator(bundleHash) {
 			break
 		}
-		obsoleteTagTrits[0] = AddTrits(obsoleteTagTrits[0], Trits{1})
+		obsoleteTagsTrits[0] = AddTrits(obsoleteTagsTrits[0], Trits{1})
 	}
+
+	// update the ObsoleteTag
+	bundle[0].ObsoleteTag = MustTritsToTrytes(obsoleteTagsTrits[0])
 
 	// set the computed bundle hash on each tx in the bundle
 	for i := range bundle {
-		tx := &bundle[i]
-		if i == 0 {
-			tx.ObsoleteTag = MustTritsToTrytes(obsoleteTagTrits[0])
-		}
-		tx.Bundle = bundleHash
+		bundle[i].Bundle = bundleHash
 	}
 
 	return bundle, nil
+}
+
+func zeroLastTrit(hash Hash) Hash {
+	lastTrits := MustTrytesToTrits(string(hash[HashTrytesSize-1]))
+	if lastTrits[TritsPerTryte-1] == 0 {
+		return hash
+	}
+	lastTrits[TritsPerTryte-1] = 0
+	return hash[:HashTrytesSize-1] + MustTritsToTrytes(lastTrits)
+}
+
+func normalizedHashHasNoM(hash Hash) bool {
+	normalizedHash := signing.NormalizedBundleHash(hash)
+	for i := range normalizedHash {
+		if normalizedHash[i] == MaxTryteValue {
+			return false
+		}
+	}
+	return true
 }
 
 // AddTrytes adds the given fragments to the txs in the bundle starting
@@ -290,7 +329,6 @@ func ValidateBundleSignatures(bundle Bundle) (bool, error) {
 func ValidBundle(bundle Bundle) error {
 	var totalSum int64
 
-	sigs := make(map[Hash][]Trytes)
 	changes := map[trinary.Trytes]int64{}
 	k := kerl.NewKerl()
 
@@ -319,26 +357,17 @@ func ValidBundle(bundle Bundle) error {
 			return errors.Wrapf(ErrInvalidBundle, "expected tx at index %d to have last index %d but got %d", i, lastIndex, tx.LastIndex)
 		}
 
-		k.MustAbsorbTrytes(transaction.MustTransactionToTrytes(tx)[2187 : 2187+162])
-
-		// continue if output or signature txbundle bundle
-		if tx.Value >= 0 {
-			continue
+		// absorb the bundle essence of this transaction
+		txTrits, err := transaction.TransactionToTrits(tx)
+		if err != nil {
+			return err
 		}
-
-		// here we have an input transaction (negative value)
-		sigs[tx.Address] = append(sigs[tx.Address], tx.SignatureMessageFragment)
-
-		// find the subsequent txs containing the remaining signature
-		// message fragments for this input transaction
-		for j := i; j < len(bundle)-1; j++ {
-			tx2 := &bundle[j+1]
-
-			// check if the tx is part of the input transaction
-			if tx2.Address == tx.Address && tx2.Value == 0 {
-				// append the signature message fragment
-				sigs[tx.Address] = append(sigs[tx.Address], tx2.SignatureMessageFragment)
-			}
+		essenceTrits := txTrits[consts.AddressTrinaryOffset:consts.BundleTrinaryOffset]
+		// set the lest address trit to zero for backward compatibility
+		// this can lead to transactions with different addresses having the same bundle hash
+		essenceTrits[consts.HashTrinarySize-1] = 0
+		if err := k.Absorb(essenceTrits); err != nil {
+			return err
 		}
 	}
 

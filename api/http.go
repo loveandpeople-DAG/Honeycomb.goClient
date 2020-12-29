@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	. "github.com/loveandpeople-DAG/goClient/consts"
 	"github.com/loveandpeople-DAG/goClient/pow"
@@ -27,6 +28,10 @@ func NewHTTPClient(settings interface{}) (Provider, error) {
 type HTTPClientSettings struct {
 	// The URI endpoint to connect to. Defaults to DefaultLocalIRIURI if empty.
 	URI string
+	// Authorization User Default nil
+	User string
+	// Authorization Password default nil
+	Pwd string
 	// The underlying HTTPClient to use. Defaults to http.DefaultClient.
 	Client HTTPClient
 	// The Proof-of-Work implementation function. Defaults to use the AttachToTangle IRI API call.
@@ -44,8 +49,9 @@ type HTTPClient interface {
 }
 
 type httpclient struct {
-	client   HTTPClient
-	endpoint string
+	client        HTTPClient
+	endpoint      string
+	Authorization string
 }
 
 // ignore
@@ -61,6 +67,10 @@ func (hc *httpclient) SetSettings(settings interface{}) error {
 			return errors.Wrap(ErrInvalidURI, httpSettings.URI)
 		}
 		hc.endpoint = httpSettings.URI
+	}
+	if httpSettings.User != "" && httpSettings.Pwd != "" {
+		Authorization := httpSettings.User + ":" + httpSettings.Pwd
+		hc.Authorization = base64.StdEncoding.EncodeToString([]byte(Authorization))
 	}
 	if httpSettings.Client != nil {
 		hc.client = httpSettings.Client
@@ -85,6 +95,9 @@ func (hc *httpclient) Send(cmd interface{}, out interface{}) error {
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-IOTA-API-Version", "1")
+	if hc.Authorization != "" {
+		req.Header.Set("Authorization", "Basic "+hc.Authorization)
+	}
 	resp, err := hc.client.Do(req)
 	if err != nil {
 		return err

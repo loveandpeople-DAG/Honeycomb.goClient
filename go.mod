@@ -4,8 +4,10 @@ go 1.12
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9 // indirect
+	github.com/apsdehal/go-logger v0.0.0-20190515212710-b0d6ccfee0e6 // indirect
 	github.com/beevik/ntp v0.2.0
 	github.com/cespare/xxhash v1.1.0
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/badger v1.5.4
 	github.com/dgryski/go-farm v0.0.0-20190323231341-8198c7b169ec // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
@@ -14,7 +16,6 @@ require (
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	github.com/pkg/errors v0.8.1
-	github.com/simia-tech/env v0.1.0
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/tidwall/pretty v1.0.0 // indirect
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect

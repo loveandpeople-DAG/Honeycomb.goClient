@@ -1,6 +1,10 @@
 package account_test
 
 import (
+	"strings"
+	"time"
+
+	"github.com/loveandpeople-DAG/goClient/account"
 	"github.com/loveandpeople-DAG/goClient/account/builder"
 	"github.com/loveandpeople-DAG/goClient/account/deposit"
 	"github.com/loveandpeople-DAG/goClient/account/event"
@@ -15,13 +19,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gopkg.in/h2non/gock.v1"
-	"strings"
-	"time"
-
-	"github.com/loveandpeople-DAG/goClient/account"
 )
 
-const seed = "BXY9DNFAJKY9UPRTP9AQFQKESGLBDXBQHIXSFDDBLIJDXSKLBYFJ9XPZ9YSAGFVXQHBODMNFLNCMAJHYH"
+const seed = "BXY9DNFAJKY9UPRTP9AQFQKESGLBDXBQHIXSFDDBLIJDXSKLBYFJ9XPZ9YSAGFVXQHBODMNFLNCMAJHYZ"
 const id = "d7e75aa9def2ef9c813313f0e0fb72b9"
 const usedSecLvl = consts.SecurityLevelLow
 

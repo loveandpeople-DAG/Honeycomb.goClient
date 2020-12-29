@@ -1,15 +1,16 @@
 package bundle_test
 
 import (
+	"strings"
+	"time"
+
 	. "github.com/loveandpeople-DAG/goClient/bundle"
 	. "github.com/loveandpeople-DAG/goClient/consts"
-	"github.com/loveandpeople-DAG/goClient/converter"
+	"github.com/loveandpeople-DAG/goClient/encoding/ascii"
 	"github.com/loveandpeople-DAG/goClient/transaction"
 	. "github.com/loveandpeople-DAG/goClient/trinary"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"strings"
-	"time"
 )
 
 var _ = Describe("Bundle", func() {
@@ -19,7 +20,7 @@ var _ = Describe("Bundle", func() {
 	tag := "TAG" + strings.Repeat("9", 24)
 	bndl := Bundle{
 		{
-			Address:                       strings.Repeat("A", 81),
+			Address:                       strings.Repeat("A", 80) + "J", // as the last trit will be zeroed, this should be the same as all As
 			Value:                         -2,
 			Tag:                           tag,
 			ObsoleteTag:                   tag,
@@ -38,7 +39,7 @@ var _ = Describe("Bundle", func() {
 		},
 
 		{
-			Address:                       strings.Repeat("A", 81),
+			Address:                       strings.Repeat("A", 80) + "J",
 			Value:                         0,
 			Tag:                           tag,
 			ObsoleteTag:                   tag,
@@ -57,7 +58,7 @@ var _ = Describe("Bundle", func() {
 		},
 
 		{
-			Address:                       strings.Repeat("B", 81),
+			Address:                       strings.Repeat("B", 80) + "K",
 			Value:                         2,
 			Tag:                           tag,
 			ObsoleteTag:                   tag,
@@ -78,7 +79,7 @@ var _ = Describe("Bundle", func() {
 
 	Context("TransfersToBundleEntries()", func() {
 		It("converts single transfer to correct entry", func() {
-			msg, err := converter.ASCIIToTrytes("test")
+			msg, err := ascii.EncodeToTrytes("test")
 			Expect(err).ToNot(HaveOccurred())
 			transfers := Transfers{
 				{
@@ -188,13 +189,28 @@ var _ = Describe("Bundle", func() {
 	})
 
 	Context("Finalize()", func() {
-
 		It("computes the bundle hash and adds it to all transactions in the bundle", func() {
 			bndlCopy := make(Bundle, len(bndl))
 			copy(bndlCopy, bndl)
 			_, err := Finalize(bndlCopy)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(bndlCopy[0].Bundle).To(Equal("VRGXKZDODWIVGFYFCCXJRNDCQJVYUVBRIWJXKFGBIEWUPHHTJLTKH99JW9OLJ9JCIXCEIRRXJKLWOBDZZ"))
+			Expect(bndlCopy[0].ObsoleteTag).To(Equal("ZUH999999999999999999999999"))
+			for i := range bndlCopy {
+				Expect(bndlCopy[i].Bundle).To(Equal("VRGXKZDODWIVGFYFCCXJRNDCQJVYUVBRIWJXKFGBIEWUPHHTJLTKH99JW9OLJ9JCIXCEIRRXJKLWOBDZZ"))
+			}
+		})
+	})
+
+	Context("FinalizeInsecure()", func() {
+		It("computes the bundle hash and adds it to all transactions in the bundle", func() {
+			bndlCopy := make(Bundle, len(bndl))
+			copy(bndlCopy, bndl)
+			_, err := FinalizeInsecure(bndlCopy)
+			Expect(err).ToNot(HaveOccurred())
+			for i := range bndlCopy {
+				Expect(bndlCopy[i].ObsoleteTag).To(Equal(bndlCopy[i].Tag))
+				Expect(bndlCopy[i].Bundle).To(Equal("YIRZIQZEVGPUFQAKTISUPRGNSBBUYBBWFIBFVWO9GEQMPHKKZBM9TF9CFEKIWVYTCYMKDWWQ999ZKW9IB"))
+			}
 		})
 	})
 
