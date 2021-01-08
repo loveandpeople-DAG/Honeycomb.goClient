@@ -139,3 +139,9 @@ const (
 	ISSKeyLength   uint64 = HashTrinarySize * ISSFragments
 	ISSChunkLength int    = HashTrinarySize / TrinaryRadix
 )
+
+// Trinary conversion constants.
+const (
+	Radix                int8 = 3
+	NumberOfTritsInAByte      = 5
+)
